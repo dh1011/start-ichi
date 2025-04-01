@@ -1,14 +1,17 @@
 version: '3'
 
 services:
-  app:
-    image: dh1011/start-ichi:latest
+  start-ichi:
+    # image: dh1011/start-ichi:latest
+    build:
+      context: .
     ports:
       - "5000:5000"
     volumes:
-      - data:/app/data
+      - data:/app/server/data
     environment:
-      - FLASK_ENV=production
+      - START_ICHI_PASSWORD=admin
+      - FLASK_SECRET_KEY=dev
     restart: unless-stopped
 
 volumes:

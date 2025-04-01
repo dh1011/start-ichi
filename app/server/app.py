@@ -1,10 +1,24 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session
 import json
 import os
 from flask_cors import CORS
+from functools import wraps
 
 app = Flask(__name__, static_folder=".", static_url_path="")
-CORS(app)  # Enable CORS for all routes
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev')  # Use environment variable for secret key
+CORS(app, supports_credentials=True)  # Enable CORS with credentials
+
+# Get password from environment variable
+PASSWORD = os.environ.get('START_ICHI_PASSWORD', 'admin')  # Default to 'admin' if not set
+
+# Authentication decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('authenticated'):
+            return jsonify({"error": "Authentication required"}), 401
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Define data directory relative to this file
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -62,40 +76,63 @@ def write_config(data):
     with open(CONFIG_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-# API Routes
+# Add login endpoint
+@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.json
+    if data.get('password') == PASSWORD:
+        session['authenticated'] = True
+        return jsonify({"message": "Login successful"})
+    return jsonify({"error": "Invalid password"}), 401
+
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    session.pop('authenticated', None)
+    return jsonify({"message": "Logged out successfully"})
+
+@app.route("/api/check-auth", methods=["GET"])
+def check_auth():
+    return jsonify({"authenticated": session.get('authenticated', False)})
+
+# Protect all API routes with authentication
 @app.route("/api/items", methods=["GET"])
+@login_required
 def get_items():
     data = read_data()
     return jsonify(data["items"])
 
 @app.route("/api/banner", methods=["GET"])
+@login_required
 def get_banner():
     banner_data = read_banner()
     return jsonify(banner_data)
 
 @app.route("/api/banner", methods=["POST"])
+@login_required
 def update_banner():
     new_banner_data = request.json
     write_banner(new_banner_data)
     return jsonify(new_banner_data), 200
 
 @app.route("/api/config", methods=["GET"])
+@login_required
 def get_config():
     config_data = read_config()
     return jsonify(config_data)
 
 @app.route("/api/config", methods=["POST"])
+@login_required
 def update_config():
     new_config_data = request.json
     write_config(new_config_data)
     return jsonify(new_config_data), 200
 
 @app.route("/api/items", methods=["POST"])
+@login_required
 def add_item():
     data = read_data()
     new_item = request.json
     
-    # Generate a new ID (simple approach)
     if data["items"]:
         new_id = max(item["id"] for item in data["items"]) + 1
     else:
@@ -107,19 +144,20 @@ def add_item():
     return jsonify(new_item), 201
 
 @app.route("/api/items/<int:item_id>", methods=["PUT"])
+@login_required
 def update_item(item_id):
     data = read_data()
     for i, item in enumerate(data["items"]):
         if item["id"] == item_id:
-            # Update item with request data
             updated_item = request.json
-            updated_item["id"] = item_id  # Ensure ID doesn't change
+            updated_item["id"] = item_id
             data["items"][i] = updated_item
             write_data(data)
             return jsonify(updated_item)
     return jsonify({"error": "Item not found"}), 404
 
 @app.route("/api/items/<int:item_id>", methods=["DELETE"])
+@login_required
 def delete_item(item_id):
     data = read_data()
     for i, item in enumerate(data["items"]):

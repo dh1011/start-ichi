@@ -123,5 +123,3 @@ Click the `[configuration]` button to:
    - For local services, you can use just port numbers (e.g., `:8080`)
 3. Click `[edit links]` to modify or delete existing bookmarks
 4. Click `[configuration]` to customize the appearance
-
-

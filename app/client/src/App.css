@@ -277,4 +277,66 @@ input,
 .terminal-cancel-btn {
   color: var(--accent-color-quaternary);
   font-weight: 600;
+}
+
+.terminal-login {
+  background-color: transparent;
+  padding: 1rem;
+  margin: 2rem auto;
+  max-width: 400px;
+}
+
+.terminal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.terminal-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.terminal-input {
+  flex: 1;
+  background-color: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-color);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-base);
+  padding: 2px 4px;
+  margin-left: 4px;
+  outline: none;
+}
+
+.terminal-input:focus {
+  border-bottom-color: var(--accent-color);
+}
+
+.terminal-input::placeholder {
+  color: var(--text-color);
+  opacity: 0.5;
+}
+
+.terminal-logout-btn {
+  color: var(--accent-color);
+  font-size: var(--font-size-base);
+  padding: 0;
+  margin: 0;
+}
+
+.logout-icon {
+  font-size: var(--font-size-base);
+  line-height: 1;
+  display: inline-block;
+  transform: rotate(180deg);
+}
+
+.terminal-controls {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
 } 

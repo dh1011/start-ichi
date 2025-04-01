@@ -13,13 +13,23 @@ function App() {
   const [bannerUrl, setBannerUrl] = useState("https://cdn.midjourney.com/11cffed4-8a58-41de-98ff-d0cbd01cc75a/0_2.png");
   const [bannerLoaded, setBannerLoaded] = useState(false);
   const [dominantColor, setDominantColor] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [password, setPassword] = useState('');
+  const [showLogin, setShowLogin] = useState(false);
   const imageRef = useRef();
 
   useEffect(() => {
-    fetchItems();
-    fetchBanner();
-    fetchConfig();
+    checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchItems();
+      fetchBanner();
+      fetchConfig();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     // Apply the dominant color to document.body as a CSS variable
@@ -99,6 +109,44 @@ function App() {
       document.documentElement.style.setProperty('--bg-color', darkShade);
     }
   }, [dominantColor]);
+
+  const checkAuth = async () => {
+    try {
+      const response = await axios.get('/api/check-auth', { withCredentials: true });
+      setIsAuthenticated(response.data.authenticated);
+      setShowLogin(!response.data.authenticated);
+    } catch (err) {
+      console.error('Error checking auth:', err);
+      setIsAuthenticated(false);
+      setShowLogin(true);
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post('/api/login', { password }, { withCredentials: true });
+      if (response.data.message === "Login successful") {
+        setIsAuthenticated(true);
+        setShowLogin(false);
+        setPassword('');
+      }
+    } catch (err) {
+      setError('Invalid password');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await axios.post('/api/logout', {}, { withCredentials: true });
+      setIsAuthenticated(false);
+      setShowLogin(true);
+    } catch (err) {
+      console.error('Error logging out:', err);
+    }
+  };
 
   const fetchBanner = async () => {
     try {
@@ -261,12 +309,12 @@ function App() {
   const fetchItems = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/items');
+      const response = await axios.get('/api/items', { withCredentials: true });
       setItems(response.data);
       setError(null);
     } catch (err) {
-      setError('Failed to fetch items. Please try again later.');
       console.error('Error fetching items:', err);
+      setError('Failed to fetch items. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -274,46 +322,90 @@ function App() {
 
   const addItem = async (newItem) => {
     try {
-      const response = await axios.post('/api/items', newItem);
+      const response = await axios.post('/api/items', newItem, { withCredentials: true });
       setItems([...items, response.data]);
     } catch (err) {
-      setError('Failed to add item. Please try again.');
       console.error('Error adding item:', err);
+      setError('Failed to add item. Please try again.');
     }
   };
 
   const updateItem = async (updatedItem) => {
     try {
-      await axios.put(`/api/items/${updatedItem.id}`, updatedItem);
+      await axios.put(`/api/items/${updatedItem.id}`, updatedItem, { withCredentials: true });
       setItems(items.map(item => 
         item.id === updatedItem.id ? updatedItem : item
       ));
     } catch (err) {
-      setError('Failed to update item. Please try again.');
       console.error('Error updating item:', err);
+      setError('Failed to update item. Please try again.');
     }
   };
 
   const deleteItem = async (id) => {
     try {
-      await axios.delete(`/api/items/${id}`);
+      await axios.delete(`/api/items/${id}`, { withCredentials: true });
       setItems(items.filter(item => item.id !== id));
     } catch (err) {
-      setError('Failed to delete item. Please try again.');
       console.error('Error deleting item:', err);
+      setError('Failed to delete item. Please try again.');
     }
   };
 
   const updateBannerUrl = async (url) => {
     try {
-      setBannerUrl(url);
       setBannerLoaded(false); // Reset loaded state for new image
-      await axios.post('/api/banner', { bannerUrl: url });
+      await axios.post('/api/banner', { bannerUrl: url }, { withCredentials: true });
+      setBannerUrl(url);
     } catch (err) {
-      setError('Failed to update banner. Please try again.');
       console.error('Error updating banner:', err);
+      setError('Failed to update banner. Please try again.');
     }
   };
+
+  if (isCheckingAuth) {
+    return (
+      <div className="terminal-app">
+        <div className="terminal-container">
+          <div className="terminal-loading">
+            {'>'}  Loading...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showLogin) {
+    return (
+      <div className="terminal-app">
+        <div className="terminal-container">
+          <div className="terminal-login">
+            <form onSubmit={handleLogin} className="terminal-form">
+              <div className="terminal-input-group">
+                <span className="terminal-prompt">{'>'}</span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password"
+                  className="terminal-input"
+                  autoFocus
+                />
+              </div>
+              {error && (
+                <div className="terminal-error">
+                  {'>'}  ERROR: {error}
+                </div>
+              )}
+              <button type="submit" className="terminal-btn">
+                {'>'}  Login
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="terminal-app">
@@ -327,7 +419,7 @@ function App() {
             style={{ borderRadius: '12px' }}
             onLoad={() => {
               setBannerLoaded(true);
-              setTimeout(extractDominantColor, 100); // Slight delay to ensure image is fully loaded
+              setTimeout(extractDominantColor, 100);
             }}
             onError={(e) => {
               e.target.src = "https://cdn.midjourney.com/11cffed4-8a58-41de-98ff-d0cbd01cc75a/0_2.png";
@@ -381,6 +473,11 @@ function App() {
           bannerUrl={bannerUrl}
           updateBannerUrl={updateBannerUrl}
         />
+        <div className="terminal-controls">
+          <button onClick={handleLogout} className="terminal-btn terminal-logout-btn" title="Logout">
+            {'>'} Logout
+          </button>
+        </div>
       </div>
     </div>
   );
